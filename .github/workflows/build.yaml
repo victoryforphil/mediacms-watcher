@@ -47,4 +47,20 @@ jobs:
                   -X 'main.Version=$PRODUCT_VERSION'
                   -X 'main.Revision=$PRODUCT_REVISION'
                   -X 'main.RevisionTime=$PRODUCT_REVISION_TIME'
-                "
+                  "
+  release:
+    needs: build-watcher
+    runs-on: ubuntu-latest
+    steps:
+      # Download the release binary (arfiact) from the build-watcher job
+      - name: Download release binary
+        uses: actions/download-artifact@v3
+        with:
+          path: ${{ github.workspace }}
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "Development Build"
+          files: ${{ github.workspace }}/*
