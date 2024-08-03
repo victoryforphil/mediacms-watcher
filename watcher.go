@@ -15,53 +15,13 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func login() {
-	log.Info("Logging into Media CMS")
-
-	url := "http://192.168.1.154/api/v1/whoami"
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Fatal("Failed to create the request: \n\t", "error", err)
-	}
-
-	username := "admin"
-	password := "filename7"
-	req.SetBasicAuth(username, password)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-
-	if err != nil {
-		log.Fatal("Failed to get the response: \n\t", "Error", err)
-	}
-
-	defer resp.Body.Close()
-
-	log.Info("Response Status: \n\t", "Status Code", resp.Status)
-
-	body, err := ioutil.ReadAll(resp.Body)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Convert body to JSON
-	var data map[string]interface{}
-	err = json.Unmarshal(body, &data)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	username = data["username"].(string)
-	log.Info("Logged in as Username: \n\t", "Usernames", username)
-
-}
-
-const watch_dir = "./test/"
+// Get from env variable WATCH_DIR
+var watch_dir = os.Getenv("WATCH_DIR")
+var user = os.Getenv("MEDIACMS_USER")
+var password = os.Getenv("MEDIACMS_PASSWORD")
 
 func get_files() []string {
+
 	log.Info("Getting the files in the directory: \n\t", watch_dir)
 
 	file_info, err := os.ReadDir(watch_dir)
@@ -100,11 +60,16 @@ func move_to_uploaded(file_path string) {
 	if err != nil {
 		log.Fatal("Failed to move the file: \n\t", "Error", err)
 	}
+
+	log.Info("Moved the file to the uploaded directory: \n\t", "Old Path", file_path, "New Path", new_path)
 }
 
 func upload_file(file_path string) {
 	url := "http://192.168.1.154/api/v1/media"
-	log.Debug("Uploading the file: \n\t", "filename", file_path)
+
+	filename := filepath.Base(file_path)
+
+	log.Info("Uploading the file: \n\t", "filename", file_path)
 
 	// Create a buffer to hold the multipart form data
 	var b bytes.Buffer
@@ -127,13 +92,13 @@ func upload_file(file_path string) {
 	}
 
 	// Add the description field to the form
-	err = writer.WriteField("description", "description - description")
+	err = writer.WriteField("description", "Automatically uploaded file from watcher")
 	if err != nil {
 		log.Fatalf("Failed to add description field: %v", err)
 	}
 
 	// Add the title field to the form
-	err = writer.WriteField("title", "title - title")
+	err = writer.WriteField("title", filename)
 	if err != nil {
 		log.Fatalf("Failed to add title field: %v", err)
 	}
@@ -153,10 +118,7 @@ func upload_file(file_path string) {
 	// Set the Content-Type header to multipart/form-data
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	// Set the Authorization header
-	username := "admin"
-	password := "filename7"
-	req.SetBasicAuth(username, password)
+	req.SetBasicAuth(user, password)
 
 	// Create a new client
 	client := &http.Client{}
@@ -197,7 +159,7 @@ func tick() {
 
 	files := get_files()
 
-	log.Info("Uploading files", "Num File", len(files))
+	log.Info("Found files", "Num Files", len(files))
 
 	upload_g := errgroup.Group{}
 	upload_g.SetLimit(3)
@@ -237,10 +199,23 @@ func start_watcher() {
 }
 
 func main() {
+	if watch_dir == "" {
+		log.Fatal("WATCH_DIR environment variable not set")
+	}
+
+	if watch_dir[len(watch_dir)-1] != '/' {
+		watch_dir += "/"
+	}
+
+	if user == "" {
+		log.Fatal("MEDIACMS_USER environment variable not set")
+	}
+
+	if password == "" {
+		log.Fatal("MEDIACMS_PASSWORD environment variable not set")
+	}
 
 	log.Info("Starting the watcher")
-
-	login()
 	start_watcher()
 
 	select {}
