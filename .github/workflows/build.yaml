@@ -33,7 +33,7 @@ jobs:
         with:
           product_name: mediacms-watcher
           product_version: 0.0.1
-          go_version: 1.23
+          go_version: 1.22
           os: ${{ matrix.os }}
           arch: ${{ matrix.arch }}
           instructions: |-
